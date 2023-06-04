@@ -1,11 +1,9 @@
 from collections import Counter
-from typing import List
+from typing import List, Tuple, Set
 
 import pandas as pd
-from filterframes import from_dta_select_filter
-from peptacular.peptide import strip_modifications
 from peptacular.protein import identify_cleavage_sites
-from scipy.stats import chi2_contingency
+from scipy.stats import chi2_contingency, chisquare, norm, stats
 import numpy as np
 from constants import BASELINE_VERTEBRATES_AA_FREQUENCY
 
@@ -233,103 +231,196 @@ def explore_sites(peptides: List[str], term='both', n=1, c_term=True, aa_categor
     return df
 
 
-import plotly.graph_objects as go
+def get_enzyme_site_df(peptides: Set[str], n: int = 1) -> pd.DataFrame:
+
+    if n == 1:
+        data = {'peptide_term':[], 'cut_position': [], 'peptide': [], 'residue': []}
+        for peptide in peptides:
+            c_term_c_cut_position = peptide[-3]
+            data['peptide_term'].append('C')
+            data['cut_position'].append('C')
+            data['peptide'].append(peptide)
+            data['residue'].append(c_term_c_cut_position)
+
+            c_term_n_cut_position = peptide[-1]
+            data['peptide_term'].append('C')
+            data['cut_position'].append('N')
+            data['peptide'].append(peptide)
+            data['residue'].append(c_term_n_cut_position)
+
+            n_term_c_cut_position = peptide[0]
+            data['peptide_term'].append('N')
+            data['cut_position'].append('C')
+            data['peptide'].append(peptide)
+            data['residue'].append(n_term_c_cut_position)
+
+            n_term_n_cut_position = peptide[2]
+            data['peptide_term'].append('N')
+            data['cut_position'].append('N')
+            data['peptide'].append(peptide)
+            data['residue'].append(n_term_n_cut_position)
+
+    elif n == 2:
+        data = {'peptide_term': [], 'peptide': [], 'residue': []}
+        for peptide in peptides:
+            data['peptide_term'].append('C')
+            data['peptide'].append(peptide)
+            data['residue'].append(peptide[-3] + peptide[-1])
+
+            data['peptide_term'].append('N')
+            data['peptide'].append(peptide)
+            data['residue'].append(peptide[0] + peptide[2])
+
+    else:
+        raise ValueError('n must be 1 or 2')
+
+    df = pd.DataFrame(data)
+    return df
+
+def get_enzyme_site_statistics(site_df: pd.DataFrame, residue_frequencies: dict = None) -> pd.DataFrame:
+
+    residues_are_pairs = 'cut_position' not in site_df.columns
+
+    if residue_frequencies is None:
+        residue_frequencies = BASELINE_VERTEBRATES_AA_FREQUENCY
+
+    if residues_are_pairs is True:
+        tmp = {}
+        for aa1 in residue_frequencies:
+            for aa2 in residue_frequencies:
+                tmp[aa1 + aa2] = residue_frequencies[aa1] * residue_frequencies[aa2]
+        residue_frequencies = tmp
+
+    group_columns = ['peptide_term']
+    if residues_are_pairs is False:
+        group_columns.append('cut_position')
+
+    # Group by term, cut_position, and residue, and count the number of occurrences
+    grouped = site_df.groupby(group_columns + ['residue']).size().reset_index(name='count')
+
+    if residues_are_pairs is False:
+        # Combine C and N terms
+        combined = site_df.copy()
+        combined['peptide_term'] = 'CN'
+        combined_grouped = combined.groupby(group_columns + ['residue']).size().reset_index(name='count')
+        # Concatenate grouped and combined_grouped dataframes
+        grouped = pd.concat([grouped, combined_grouped], ignore_index=True)
+
+    # Calculate the frequency of each residue per term and cut_position
+    grouped['frequency'] = grouped.groupby(group_columns)['count'].transform(lambda x: x / x.sum())
+
+    # Fill in missing residues with 0 frequency and count 0
+    if residues_are_pairs is False:
+        all_residues = pd.DataFrame([(term, cut_position, residue) for term in grouped['peptide_term'].unique()
+                                     for cut_position in grouped['cut_position'].unique()
+                                     for residue in residue_frequencies.keys()],
+                                    columns=['peptide_term', 'cut_position', 'residue'])
+    else:
+        all_residues = pd.DataFrame([(term, residue) for term in grouped['peptide_term'].unique()
+                                     for residue in residue_frequencies.keys()],
+                                    columns=['peptide_term', 'residue'])
+    grouped = pd.merge(all_residues, grouped, on=group_columns + ['residue'], how='left').fillna(0)
+    grouped.sort_values(group_columns + ['residue'], inplace=True)
+
+    # Calculate the expected count and frequency of each residue per term and cut_position (based on baseline_freqs)
+    total_counts = grouped.groupby(group_columns)['count'].sum().reset_index(name='total_count')
+    grouped = pd.merge(grouped, total_counts, on=group_columns)
+    grouped['expected_frequency'] = grouped['residue'].apply(lambda x: residue_frequencies.get(x, 0))
+    grouped['expected_count'] = grouped['expected_frequency'] * grouped['total_count']
+
+    # Normalize observed and expected counts
+    grouped['count_normalized'] = grouped.groupby(group_columns)['count'].transform(lambda x: x / x.sum())
+    grouped['expected_count_normalized'] = grouped.groupby(group_columns)['expected_count'].transform(lambda x: x / x.sum())
+
+    # Calculate Z-scores and p-values for each residue
+    grouped['z_score'] = (grouped['frequency'] - grouped['expected_frequency']) / np.sqrt((grouped['expected_frequency'] * (1 - grouped['expected_frequency'])) / grouped['total_count'])
+    #grouped['p_value'] = 2 * (1 - norm.cdf(abs(grouped['z_score'])))  # Two-tailed test
+    grouped['p_value'] = norm.sf(abs(grouped['z_score'])) * 2  # Two-tailed test
+
+    # Calculate the log2 fold change of the observed frequency over the expected frequency
+    grouped['log2_change'] = np.log2(grouped['frequency'] / grouped['expected_frequency'])
+
+    grouped.to_csv('enzyme_site_statistics.csv', index=False)
+    return grouped
 
 
-def plot_volcano(df):
-    # Generate a column for -log10(p-value)
-    df['minus_log10_p_value'] = -np.log10(df['p_value'] + 1e-100)
+def get_enzyme_site_statistics2(site_df: pd.DataFrame, residue_frequencies: dict = None) -> pd.DataFrame:
 
-    # Create a new column 'significance' based on some threshold on the p_value
-    df['significance'] = ['significant' if x < 0.05 else 'not significant' for x in df['p_value']]
+    residues_are_pairs = len(site_df['residue'].iloc[0]) == 2
 
-    # Plotting
-    fig = go.Figure()
+    if residue_frequencies is None:
+        residue_frequencies = BASELINE_VERTEBRATES_AA_FREQUENCY
 
-    # Plot significant points
-    significant_points = df[df['significance'] == 'significant']
-    fig.add_trace(go.Scatter(
-        x=significant_points['log2_change'],
-        y=significant_points['minus_log10_p_value'],
-        mode='markers+text',
-        marker=dict(color='blue'),
-        text=significant_points.index,  # Use amino acid labels as text
-        textposition='top center',
-        name='Significant'
-    ))
+    if residues_are_pairs is True:
+        tmp = {}
+        for aa1 in residue_frequencies:
+            for aa2 in residue_frequencies:
+                tmp[aa1 + aa2] = residue_frequencies[aa1] * residue_frequencies[aa2]
+        residue_frequencies = tmp
 
-    # Plot non-significant points
-    non_significant_points = df[df['significance'] == 'not significant']
-    fig.add_trace(go.Scatter(
-        x=non_significant_points['log2_change'],
-        y=non_significant_points['minus_log10_p_value'],
-        mode='markers+text',
-        marker=dict(color='gray'),
-        text=non_significant_points.index,  # Use amino acid labels as text
-        textposition='top center',
-        name='Not Significant'
-    ))
+    group_columns = ['peptide_term', 'cut_position']
+    # Group by term, cut_position, and residue, and count the number of occurrences
+    grouped = site_df.groupby(group_columns + ['residue']).size().reset_index(name='count')
 
-    # Plot horizontal line at p=0.05
-    fig.add_shape(
-        type="line",
-        x0=df['log2_change'].min(),
-        y0=-np.log10(0.05),
-        x1=df['log2_change'].max(),
-        y1=-np.log10(0.05),
-        line=dict(color='red', dash='dash')
-    )
+    if residues_are_pairs is False:
+        # Combine C and N terms
+        combined = site_df.copy()
+        combined['peptide_term'] = 'CN'
+        combined_grouped = combined.groupby(['cut_position', 'residue']).size().reset_index(name='count')
+        # Concatenate grouped and combined_grouped dataframes
+        grouped = pd.concat([grouped, combined_grouped], ignore_index=True)
 
-    # Update layout
-    fig.update_layout(
-        title='Volcano plot',
-        xaxis_title='Log2 fold change',
-        yaxis_title='-Log10(p-value)',
-        showlegend=True,
-        legend=dict(title='Significance')
-    )
+    # Calculate the frequency of each residue per term and cut_position
+    grouped['frequency'] = grouped.groupby(group_columns)['count'].transform(lambda x: x / x.sum())
 
-    return fig
+    # Fill in missing residues with 0 frequency and count 0
+    if residues_are_pairs is False:
+        all_residues = pd.DataFrame([(term, cut_position, residue) for term in grouped['peptide_term'].unique()
+                                     for cut_position in grouped['cut_position'].unique()
+                                     for residue in residue_frequencies.keys()],
+                                    columns=['peptide_term', 'cut_position', 'residue'])
+    else:
+        all_residues = pd.DataFrame([(term, residue) for term in grouped['peptide_term'].unique()
+                                     for residue in residue_frequencies.keys()],
+                                    columns=['peptide_term', 'residue'])
+    grouped = pd.merge(all_residues, grouped, on=group_columns + ['residue'], how='left').fillna(0)
+    grouped.sort_values(group_columns + ['residue'], inplace=True)
 
+    # Calculate the expected count and frequency of each residue per term and cut_position (based on baseline_freqs)
+    total_counts = grouped.groupby(group_columns)['count'].sum().reset_index(name='total_count')
+    grouped = pd.merge(grouped, total_counts, on=group_columns)
+    grouped['expected_frequency'] = grouped['residue'].apply(lambda x: residue_frequencies.get(x, 0))
+    grouped['expected_count'] = grouped['expected_frequency'] * grouped['total_count']
 
-def plot_bar(df):
-    fig = go.Figure()
+    # Normalize observed and expected counts
+    grouped['count_normalized'] = grouped.groupby(group_columns)['count'].transform(lambda x: x / x.sum())
+    grouped['expected_count_normalized'] = grouped.groupby(group_columns)['expected_count'].transform(lambda x: x / x.sum())
 
-    fig.add_trace(go.Bar(
-        x=df.index,
-        y=df['observed_frequency'],
-        name='Observed Frequency'
-    ))
+    # Calculate Z-scores and p-values for each residue
+    grouped['z_score'] = (grouped['frequency'] - grouped['expected_frequency']) / np.sqrt((grouped['expected_frequency'] * (1 - grouped['expected_frequency'])) / grouped['total_count'])
+    #grouped['p_value'] = 2 * (1 - norm.cdf(abs(grouped['z_score'])))  # Two-tailed test
+    grouped['p_value'] = norm.sf(abs(grouped['z_score'])) * 2  # Two-tailed test
 
-    fig.add_trace(go.Bar(
-        x=df.index,
-        y=df['expected_frequency'],
-        name='Expected Frequency'
-    ))
+    # Calculate the log2 fold change of the observed frequency over the expected frequency
+    grouped['log2_change'] = np.log2(grouped['frequency'] / grouped['expected_frequency'])
 
-    fig.update_layout(
-        title='Comparison of Observed and Expected Frequencies',
-        xaxis_title='Amino Acids',
-        yaxis_title='Frequency',
-        barmode='group',
-        legend=dict(title='Frequency Type')
-    )
-
-    return fig
+    grouped.to_csv('enzyme_site_statistics.csv', index=False)
+    return grouped
 
 
-def plot_log2fold_change(df):
-    fig = go.Figure()
+def chisquare_test_for_cut_position(site_df: pd.DataFrame, cut_position: str) -> Tuple[float, float]:
+    cut_position = cut_position.upper()
+    if cut_position == 'C':
+        n_term_c_cut_pos_df = site_df[(site_df['peptide_term'] == 'N') & (site_df['cut_position'] == 'C')].sort_values(
+            'residue')
+        c_term_c_cut_pos_df = site_df[(site_df['peptide_term'] == 'C') & (site_df['cut_position'] == 'C')].sort_values('residue')
+        res = stats.chisquare(n_term_c_cut_pos_df['frequency'], c_term_c_cut_pos_df['frequency'])
+    elif cut_position == 'N':
+        n_term_n_cut_pos_df = site_df[(site_df['peptide_term'] == 'N') & (site_df['cut_position'] == 'N')].sort_values(
+            'residue')
+        c_term_n_cut_pos_df = site_df[(site_df['peptide_term'] == 'C') & (site_df['cut_position'] == 'N')].sort_values('residue')
+        res = stats.chisquare(n_term_n_cut_pos_df['frequency'], c_term_n_cut_pos_df['frequency'])
+    else:
+        raise ValueError(f'Invalid cut_position: {cut_position}')
 
-    fig.add_trace(go.Bar(x=df.index, y=df['log2_change']))
-
-    fig.update_layout(
-        title='Log2 Fold Change',
-        xaxis_title='Amino Acids',
-        yaxis_title='Log2 Fold Change',
-        showlegend=False,
-        height=500,
-        width=800
-    )
-
-    return fig
+    return res
