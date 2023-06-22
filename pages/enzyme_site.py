@@ -15,25 +15,25 @@ use_categories = st.checkbox('Use Categories', value=False)
 
 
 if st.button('Run'):
-    peptides = set()
+    peptides = []
 
     if filter_files:
         for file in filter_files:
             file_io = StringIO(file.getvalue().decode("utf-8"))
             _, peptide_df, _, _ = from_dta_select_filter(file_io)
-            peptides.update([strip_modifications(peptide) for peptide in peptide_df['Sequence'].tolist()])
+            peptides.extend(list({strip_modifications(peptide) for peptide in peptide_df['Sequence'].tolist()}))
     else:
         st.write('No files uploaded')
         st.stop()
+    peptides = [peptide for peptide in peptides if '-' not in peptide]
+    peptides = set(peptides)
 
     df = get_enzyme_site_df(peptides, n=1)
-    df = df[~df['peptide'].str.contains('-')] # remove all rows that have a peptide with '-' in it
     site_df = get_enzyme_site_statistics(df)
 
     st.metric(label='Number of peptides', value=len(peptides))
 
     df2 = get_enzyme_site_df(peptides, n=2)
-    df2 = df2[~df2['peptide'].str.contains('-')] # remove all rows that have a peptide with '-' in it
     site_df2 = get_enzyme_site_statistics(df2)
     site_df2.sort_values(by='log2_change', inplace=True, ascending=False)
 

@@ -15,6 +15,7 @@ use_categories = st.checkbox('Use Categories', value=False)
 enzyme = st.text_input('Enzyme', value='([KR])')
 
 if st.button('Run'):
+
     peptides = set()
 
     if filter_files:
