@@ -11,8 +11,8 @@ from visualizations import plot_volcano, plot_frequency_bar, plot_log2fold_chang
 st.title("Enzyme Site Explorer")
 
 filter_files = st.file_uploader("Upload DtaSelect-filter.txt files", accept_multiple_files=True, type='.txt')
+
 use_categories = st.checkbox('Use Categories', value=False)
-enzyme = st.text_input('Enzyme', value='([KR])')
 
 if st.button('Run'):
 

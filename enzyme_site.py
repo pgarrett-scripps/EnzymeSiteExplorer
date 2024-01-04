@@ -1,5 +1,6 @@
 from io import StringIO
 
+import pandas as pd
 import streamlit as st
 from filterframes import from_dta_select_filter
 from peptacular.peptide import strip_modifications
@@ -12,8 +13,11 @@ st.title("Enzyme Site Explorer")
 filter_files = st.file_uploader("Upload DtaSelect-filter.txt files", accept_multiple_files=True, type='.txt')
 
 use_categories = st.checkbox('Use Categories', value=False)
+hide_trypsin = st.checkbox('Hide Trypsin', value=False)
+use_intensity = st.checkbox('use intensity', value=False)
 
 
+dfs = []
 if st.button('Run'):
     peptides = []
 
@@ -21,21 +25,53 @@ if st.button('Run'):
         for file in filter_files:
             file_io = StringIO(file.getvalue().decode("utf-8"))
             _, peptide_df, _, _ = from_dta_select_filter(file_io)
+            dfs.append(peptide_df)
             peptides.extend(list({strip_modifications(peptide) for peptide in peptide_df['Sequence'].tolist()}))
     else:
         st.write('No files uploaded')
         st.stop()
-    peptides = [peptide for peptide in peptides if '-' not in peptide]
-    peptides = set(peptides)
 
-    df = get_enzyme_site_df(peptides, n=1)
+    peptide_df = pd.concat(dfs)
+
+    # remove protein terminus peptides
+    peptide_df = peptide_df[~peptide_df['Sequence'].str.contains('-')]
+    peptide_df['StrippedSequence'] = peptide_df['Sequence'].apply(strip_modifications)
+
+    df = get_enzyme_site_df(peptide_df, n=1)
+
+    if hide_trypsin:
+        df = df[~df['tryptic']]
+
     site_df = get_enzyme_site_statistics(df)
 
-    st.metric(label='Number of peptides', value=len(peptides))
 
-    df2 = get_enzyme_site_df(peptides, n=2)
+    st.metric(label='Number of peptides', value=len(peptide_df))
+
+    df2 = get_enzyme_site_df(peptide_df, n=2)
+    if hide_trypsin:
+        df2 = df2[~df2['tryptic']]
     site_df2 = get_enzyme_site_statistics(df2)
     site_df2.sort_values(by='log2_change', inplace=True, ascending=False)
+
+    with st.expander('Single Site Data'):
+        st.dataframe(site_df)
+
+    with st.expander('Double Site Data'):
+        st.dataframe(site_df2)
+
+    st.markdown("""
+    
+    ### Cleavage Frequencies
+    
+    #### C-Terminus
+    - **C-Cut**: `x.xxX.x`
+    - **N-Cut**: `x.xxx.X`
+    
+    #### N-Terminus
+    - **C-Cut**: `X.xxx.x`
+    - **N-Cut**: `x.Xxx.x`
+
+    """)
 
     st.subheader('C Term')
     st.plotly_chart(plot_volcano(site_df2, term='C', cut_position=None), use_container_width=True)

@@ -231,51 +231,74 @@ def explore_sites(peptides: List[str], term='both', n=1, c_term=True, aa_categor
     return df
 
 
-def get_enzyme_site_df(peptides: Set[str], n: int = 1) -> pd.DataFrame:
+def get_enzyme_site_df(peptide_df: pd.DataFrame, n: int = 1) -> pd.DataFrame:
+
+    tryptic_residues = {'K', 'R'}
 
     if n == 1:
-        data = {'peptide_term':[], 'cut_position': [], 'peptide': [], 'residue': []}
-        for peptide in peptides:
+        data = {'peptide_term':[], 'cut_position': [], 'peptide': [], 'residue': [], 'intensity': [], 'tryptic': []}
+        for i, row in peptide_df.iterrows():
+
+            peptide = row['StrippedSequence']
+            intensity = row['TotalIntensity']
+
             c_term_c_cut_position = peptide[-3]
             data['peptide_term'].append('C')
             data['cut_position'].append('C')
             data['peptide'].append(peptide)
             data['residue'].append(c_term_c_cut_position)
+            data['intensity'].append(intensity)
+            data['tryptic'].append(c_term_c_cut_position in tryptic_residues)
 
             c_term_n_cut_position = peptide[-1]
             data['peptide_term'].append('C')
             data['cut_position'].append('N')
             data['peptide'].append(peptide)
             data['residue'].append(c_term_n_cut_position)
+            data['intensity'].append(intensity)
+            data['tryptic'].append(c_term_c_cut_position in tryptic_residues)
 
             n_term_c_cut_position = peptide[0]
             data['peptide_term'].append('N')
             data['cut_position'].append('C')
             data['peptide'].append(peptide)
             data['residue'].append(n_term_c_cut_position)
+            data['intensity'].append(intensity)
+            data['tryptic'].append(n_term_c_cut_position in tryptic_residues)
 
-            n_term_n_cut_position = peptide[2]
+
             data['peptide_term'].append('N')
             data['cut_position'].append('N')
             data['peptide'].append(peptide)
-            data['residue'].append(n_term_n_cut_position)
+            data['residue'].append(peptide[2])
+            data['intensity'].append(intensity)
+            data['tryptic'].append(n_term_c_cut_position in tryptic_residues)
 
     elif n == 2:
-        data = {'peptide_term': [], 'peptide': [], 'residue': []}
-        for peptide in peptides:
+        data = {'peptide_term': [], 'peptide': [], 'residue': [], 'intensity': [], 'tryptic': []}
+        for i, row in peptide_df.iterrows():
+            peptide = row['StrippedSequence']
+            intensity = row['TotalIntensity']
+
             data['peptide_term'].append('C')
             data['peptide'].append(peptide)
             data['residue'].append(peptide[-3] + peptide[-1])
+            data['intensity'].append(intensity)
+            data['tryptic'].append(peptide[-3] in tryptic_residues)
+
 
             data['peptide_term'].append('N')
             data['peptide'].append(peptide)
             data['residue'].append(peptide[0] + peptide[2])
+            data['intensity'].append(intensity)
+            data['tryptic'].append(peptide[0] in tryptic_residues)
 
     else:
         raise ValueError('n must be 1 or 2')
 
     df = pd.DataFrame(data)
     return df
+
 
 def get_enzyme_site_statistics(site_df: pd.DataFrame, residue_frequencies: dict = None) -> pd.DataFrame:
 
