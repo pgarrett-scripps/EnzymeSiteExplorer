@@ -1,9 +1,9 @@
-streamlit~=1.38.0
-pandas==2.0.2
 numpy==1.24.3
+streamlit==1.38.0
+pandas==2.0.2
 filterframes==0.1.2
-peptacular~=2.1.0
-seaborn~=0.12.2
-matplotlib~=3.7.1
-scipy~=1.10.1
-plotly~=5.14.1
+peptacular==2.1.0
+seaborn==0.12.2
+matplotlib==3.7.1
+scipy==1.10.1
+plotly==5.14.1
