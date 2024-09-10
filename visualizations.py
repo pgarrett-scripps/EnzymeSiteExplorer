@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -92,13 +92,13 @@ def plot_term_differences(df: pd.DataFrame) -> Tuple[go.Figure, go.Figure]:
     return fig_C, fig_N
 
 
-def plot_volcano(df: pd.DataFrame, term: str, cut_position: str) -> go.Figure:
+def plot_volcano(df: pd.DataFrame, term: Optional[str], cut_position: Optional[str]) -> go.Figure:
     df = df.copy()
     # Filter the dataframe to include only rows with the specified term and cut_position
-    if 'peptide_term' in df.columns:
+    if 'peptide_term' in df.columns and term is not None:
         df = df[df['peptide_term'] == term.upper()]
 
-    if 'cut_position' in df.columns:
+    if 'cut_position' in df.columns and cut_position is not None:
         df = df[df['cut_position'] == cut_position.upper()]
 
 
@@ -159,14 +159,14 @@ def plot_volcano(df: pd.DataFrame, term: str, cut_position: str) -> go.Figure:
     return fig
 
 
-def plot_frequency_bar(df: pd.DataFrame, term: str, cut_position: str) -> go.Figure:
+def plot_frequency_bar(df: pd.DataFrame, term: Optional[str], cut_position: Optional[str]) -> go.Figure:
 
     df = df.copy()
     # Filter the dataframe to include only rows with the specified term and cut_position
-    if 'peptide_term' in df.columns:
+    if 'peptide_term' in df.columns and term is not None:
         df = df[df['peptide_term'] == term.upper()]
 
-    if 'cut_position' in df.columns:
+    if 'cut_position' in df.columns and cut_position is not None:
         df = df[df['cut_position'] == cut_position.upper()]
 
     fig = go.Figure()
@@ -196,15 +196,15 @@ def plot_frequency_bar(df: pd.DataFrame, term: str, cut_position: str) -> go.Fig
     return fig
 
 
-def plot_log2fold_change(df: pd.DataFrame, term: str, cut_position: str) -> go.Figure:
+def plot_log2fold_change(df: pd.DataFrame, term: Optional[str], cut_position: Optional[str]) -> go.Figure:
 
     df = df.copy()
 
     # Filter the dataframe to include only rows with the specified term and cut_position
-    if 'peptide_term' in df.columns:
+    if 'peptide_term' in df.columns and term is not None:
         df = df[df['peptide_term'] == term.upper()]
 
-    if 'cut_position' in df.columns:
+    if 'cut_position' in df.columns and cut_position is not None:
         df = df[df['cut_position'] == cut_position.upper()]
 
     fig = go.Figure()

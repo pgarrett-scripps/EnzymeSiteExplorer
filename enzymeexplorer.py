@@ -86,7 +86,6 @@ def explore_mc(peptides: List[str], c_term=False, n=1, enzyme='([KR])', aa_categ
                                             BASELINE_VERTEBRATES_AA_FREQUENCY[
                                                 aa2]
 
-
     if aa_categories:
         mc = [convert_sequences_to_categories(aa) for aa in mc]
         tmp = {}
