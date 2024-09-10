@@ -8,12 +8,11 @@ from filterframes import from_dta_select_filter
 from peptacular.peptide import strip_modifications
 from constants import BASELINE_VERTEBRATES_AA_FREQUENCY
 
-with st.sidebar:
-    st.title("AA Freq Explorer")
+st.title("AA Freq Explorer")
 
-    filter_files = st.file_uploader("Upload DtaSelect-filter.txt files", accept_multiple_files=True, type='.txt')
+filter_files = st.file_uploader("Upload DtaSelect-filter.txt files", accept_multiple_files=True, type='.txt')
 
-    run = st.button('Run')
+run = st.button('Run')
 
 if run:
 
