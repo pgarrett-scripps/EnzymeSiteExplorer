@@ -5,7 +5,7 @@ import numpy as np
 import streamlit as st
 import pandas as pd
 from filterframes import from_dta_select_filter
-from peptacular.peptide import strip_modifications
+from peptacular.sequence import strip_mods, convert_ip2_sequence
 from constants import BASELINE_VERTEBRATES_AA_FREQUENCY
 
 st.title("AA Freq Explorer")
@@ -26,9 +26,14 @@ if run:
 
         file_io = StringIO(file.getvalue().decode("utf-8"))
         _, peptide_df, _, _ = from_dta_select_filter(file_io)
-        peptides = []
-        peptides.extend([strip_modifications(peptide[2:-2]) for peptide in peptide_df['Sequence'].tolist()])
 
+        peptides = set()
+        for peptide in peptide_df['Sequence'].tolist():
+            first_aa = peptide[0]
+            second_aa = peptide[1]
+            unmod_peptide = strip_mods(convert_ip2_sequence(peptide))
+            new_peptide = f'{first_aa}.{unmod_peptide}.{second_aa}'
+            peptides.add(new_peptide)
 
         aa_counter = Counter()
         for peptide in peptides:

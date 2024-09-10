@@ -3,7 +3,7 @@ from io import StringIO
 import pandas as pd
 import streamlit as st
 from filterframes import from_dta_select_filter
-from peptacular.peptide import strip_modifications
+from peptacular.sequence import strip_mods, convert_ip2_sequence
 
 from enzymeexplorer import get_enzyme_site_df, get_enzyme_site_statistics
 from visualizations import plot_term_differences, plot_volcano, plot_frequency_bar, plot_log2fold_change, plot_radar
@@ -20,14 +20,19 @@ use_intensity = st.checkbox('use intensity', value=False, help='Use intensity fo
 
 dfs = []
 if st.button('Run'):
-    peptides = []
+    peptides = set()
 
     if filter_files:
         for file in filter_files:
             file_io = StringIO(file.getvalue().decode("utf-8"))
             _, peptide_df, _, _ = from_dta_select_filter(file_io)
             dfs.append(peptide_df)
-            peptides.extend(list({strip_modifications(peptide) for peptide in peptide_df['Sequence'].tolist()}))
+            for peptide in peptide_df['Sequence'].tolist():
+                first_aa = peptide[0]
+                second_aa = peptide[-1]
+                unmod_peptide = strip_mods(convert_ip2_sequence(peptide))
+                new_peptide = f'{first_aa}.{unmod_peptide}.{second_aa}'
+                peptides.add(new_peptide)
     else:
         st.write('No files uploaded')
         st.stop()
@@ -36,7 +41,8 @@ if st.button('Run'):
 
     # remove protein terminus peptides
     peptide_df = peptide_df[~peptide_df['Sequence'].str.contains('-')]
-    peptide_df['StrippedSequence'] = peptide_df['Sequence'].apply(strip_modifications)
+
+    peptide_df['StrippedSequence'] = peptide_df['Sequence']
 
     df = get_enzyme_site_df(peptide_df, n=1)
 

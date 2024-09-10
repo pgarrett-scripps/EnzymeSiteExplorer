@@ -2,7 +2,7 @@ from collections import Counter
 from typing import List, Tuple, Set
 
 import pandas as pd
-from peptacular.protein import identify_cleavage_sites
+from peptacular.digestion import get_cleavage_sites
 from scipy.stats import chi2_contingency, chisquare, norm, stats
 import numpy as np
 from constants import BASELINE_VERTEBRATES_AA_FREQUENCY
@@ -57,7 +57,7 @@ def explore_mc(peptides: List[str], c_term=False, n=1, enzyme='([KR])', aa_categ
     mc = []
     for peptide in peptides:
         peptide = peptide.split('.')[1]
-        sites = identify_cleavage_sites(peptide, enzyme)
+        sites = get_cleavage_sites(peptide, enzyme)
 
         if len(peptide) in sites:
             sites.remove(len(peptide))

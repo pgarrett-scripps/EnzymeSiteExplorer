@@ -2,44 +2,42 @@ from typing import Set
 
 import numpy as np
 import pandas as pd
-from peptacular.protein import identify_cleavage_sites
+from peptacular.digestion import get_cleavage_sites
 from scipy.stats import norm
 
 from constants import BASELINE_VERTEBRATES_AA_FREQUENCY
 
 
-def get_mc_df(peptides: Set[str], enzyme: str, n:int =1) -> pd.DataFrame:
+def get_mc_df(peptides: Set[str], enzyme: str, n: int = 1) -> pd.DataFrame:
     if n == 1:
         data = {'cut_position': [], 'peptide': [], 'residue': []}
         for peptide in peptides:
 
-            peptide = peptide.split('.')[1]
-            sites = identify_cleavage_sites(peptide, enzyme)
+            sites = get_cleavage_sites(peptide, enzyme)
 
             if len(peptide) in sites:
                 sites.remove(len(peptide))
 
-                for site in sites:
-                    data['cut_position'].append('C')
-                    data['peptide'].append(peptide)
-                    data['residue'].append(peptide[site - 1])
+            for site in sites:
+                data['cut_position'].append('C')
+                data['peptide'].append(peptide)
+                data['residue'].append(peptide[site - 1])
 
-                    data['cut_position'].append('N')
-                    data['peptide'].append(peptide)
-                    data['residue'].append(peptide[site])
+                data['cut_position'].append('N')
+                data['peptide'].append(peptide)
+                data['residue'].append(peptide[site])
     elif n == 2:
         data = {'peptide': [], 'residue': []}
         for peptide in peptides:
 
-            peptide = peptide.split('.')[1]
-            sites = identify_cleavage_sites(peptide, enzyme)
+            sites = get_cleavage_sites(peptide, enzyme)
 
             if len(peptide) in sites:
                 sites.remove(len(peptide))
 
-                for site in sites:
-                    data['peptide'].append(peptide)
-                    data['residue'].append(peptide[site - 1] + peptide[site])
+            for site in sites:
+                data['peptide'].append(peptide)
+                data['residue'].append(peptide[site - 1] + peptide[site])
     else:
         raise ValueError("n must be 1 or 2")
     df = pd.DataFrame(data)

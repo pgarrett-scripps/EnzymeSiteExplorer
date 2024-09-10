@@ -2,7 +2,7 @@ from io import StringIO
 
 import streamlit as st
 from filterframes import from_dta_select_filter
-from peptacular.peptide import strip_modifications
+from peptacular.sequence import strip_mods, convert_ip2_sequence
 
 from enzymeexplorer import get_enzyme_site_statistics
 from mcexplorer import get_mc_df, get_mc_statistics
@@ -22,14 +22,18 @@ if st.button('Run'):
         for file in filter_files:
             file_io = StringIO(file.getvalue().decode("utf-8"))
             _, peptide_df, _, _ = from_dta_select_filter(file_io)
-            peptides.update([strip_modifications(peptide) for peptide in peptide_df['Sequence'].tolist()])
+            for peptide in peptide_df['Sequence'].tolist():
+                unmod_peptide = strip_mods(convert_ip2_sequence(peptide))
+                peptides.add(unmod_peptide)
     else:
         st.write('No files uploaded')
         st.stop()
 
     peptides = {peptide for peptide in peptides if '-' not in peptide}
+
     mc_df = get_mc_df(peptides, enzyme=enzyme)
     mc_df2 = get_mc_df(peptides, enzyme=enzyme, n=2)
+
 
     mc_site_df = get_enzyme_site_statistics(mc_df)
     mc_site_df2 = get_enzyme_site_statistics(mc_df2)
