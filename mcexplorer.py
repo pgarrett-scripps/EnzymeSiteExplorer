@@ -13,7 +13,7 @@ def get_mc_df(peptides: Set[str], enzyme: str, n: int = 1) -> pd.DataFrame:
         data = {'cut_position': [], 'peptide': [], 'residue': []}
         for peptide in peptides:
 
-            sites = get_cleavage_sites(peptide, enzyme)
+            sites = set(get_cleavage_sites(peptide, enzyme))
 
             if len(peptide) in sites:
                 sites.remove(len(peptide))
@@ -30,7 +30,7 @@ def get_mc_df(peptides: Set[str], enzyme: str, n: int = 1) -> pd.DataFrame:
         data = {'peptide': [], 'residue': []}
         for peptide in peptides:
 
-            sites = get_cleavage_sites(peptide, enzyme)
+            sites = set(get_cleavage_sites(peptide, enzyme))
 
             if len(peptide) in sites:
                 sites.remove(len(peptide))

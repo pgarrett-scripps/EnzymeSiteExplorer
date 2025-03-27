@@ -1,0 +1,116 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environment
+venv/
+.env/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+*.manifest
+*.spec
+
+# Cache and logs
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+
+# IDE settings
+.idea/
+.vscode/
+*.iml
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Tests
+coverage/
+htmlcov/
+.tox/
+.nox/
+*.cover
+*.coverage
+nosetests.xml
+coverage.xml
+*.pytest_cache/
+
+# PEP 582 (https://peps.python.org/pep-0582/)
+__pypackages__/
+
+# Mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyright
+.pyright/
+
+# Profiling data
+*.prof
+*.dat
+*.out
+
+# Pytest cache
+.pytest_cache/
+
+# Documentation builds
+docs/_build/
+site/
+
+# Ignore environment files
+.envrc
+*.env
+*.ini
+
+# Python-specific tool files
+*.pylintrc
+*.flake8
+*.mypy_cache
+*.isort.cfg
+*.pycln/
+
+# Docker
+*.dockerignore
+Dockerfile
+
+# VSCode Extensions
+.vscode/
+*.code-workspace
+
+# Streamlit secrets and config
+.secrets.toml
+.streamlit/config.toml
+
+# SQLite and other DBs
+*.sqlite3
+*.db
+*.sqlite
+*.db-journal
+
+# PyInstaller
+*.spec
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Local files
+*.local/
+*.lock
